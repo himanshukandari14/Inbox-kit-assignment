@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #050505;
+  --surface: #0c0c0c;
+  --surface-raised: #111111;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --accent: #e11d48;
+  --accent-muted: rgba(225, 29, 72, 0.15);
+  --cell-flash: rgba(225, 29, 72, 0.45);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-syne);
+}
+
+body {
+  background: var(--ink);
+  color: #f5f5f5;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+@keyframes shell-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-shell-in {
+  animation: shell-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes cell-pulse {
+  0% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 0 0 0 transparent;
+  }
+  45% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 0 0 2px var(--cell-flash);
+  }
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 0 0 0 transparent;
+  }
+}
+
+.animate-cell-pulse {
+  animation: cell-pulse 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}

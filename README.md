@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Inbox Kit — shared territory grid
 
-## Getting Started
+A **real-time multiplayer** board: **1,008 tiles** (36×28). Open the app, **click tiles to capture** them. A **Node.js** server holds game state; the **Next.js** client connects over **WebSockets** so updates appear for everyone at once.
 
-First, run the development server:
+## Repository layout
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+├── backend/          # Plain JavaScript (Node + ws)
+│   └── src/
+│       ├── server.js   # HTTP + WebSocket /ws
+│       ├── game.js     # Grid, users, slugs, cooldowns
+│       └── protocol.js # Grid size + cooldown constant
+├── client/           # Next.js app (React, Tailwind)
+│   ├── app/
+│   ├── components/
+│   └── hooks/        # WebSocket hook
+└── README.md
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Prerequisites
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Node.js** 18+ (`node --watch` is used for backend dev)
+- **npm** (backend) and **pnpm** or **npm** (client)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Quick start
 
-## Learn More
+Run **both** processes.
 
-To learn more about Next.js, take a look at the following resources:
+**1. Backend** — `http://localhost:4000`, WebSocket **`ws://localhost:4000/ws`**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**2. Client** — `http://localhost:3000`
 
-## Deploy on Vercel
+```bash
+cd client
+pnpm install
+pnpm dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Environment (optional)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+If the API is not on the same host/port, set in **`client/.env.local`**:
+
+```bash
+NEXT_PUBLIC_WS_URL=ws://127.0.0.1:4000/ws
+```
+
+Backend port: **`PORT`** (default `4000`).
+
+## Scripts
+
+| Location  | Command        | Purpose                |
+|-----------|----------------|------------------------|
+| `backend` | `npm run dev`  | `node --watch src/server.js` |
+| `backend` | `npm start`    | `node src/server.js`   |
+| `client`  | `pnpm dev`     | Next.js dev            |
+| `client`  | `pnpm build`   | Production build       |
+
+## How it works
+
+- **Real-time:** `ws` + small JSON messages (`welcome`, `patch`, `meta`, `sync`, `presence`, `error`).
+- **State:** In-memory on the server; captures are validated there (bounds, cooldown, own-tile reject).
+- **New players:** Random **kebab-case slug** via [`random-word-slugs`](https://www.npmjs.com/package/random-word-slugs), plus a **unique territory color** (HSL + golden-angle spacing so active players don’t share a hue).
+- **Disconnect:** That player is removed and their tiles cleared; others get a **`sync`**.
+
+### Client
+
+- Grid **scales to fit** the map panel when you resize the window.
+- Leaderboard and online count; brief error line for invalid captures.
+
+## Production
+
+- Run the backend with a real **`PORT`** and **`wss://`** in front if you use HTTPS.
+- Point **`NEXT_PUBLIC_WS_URL`** at that WebSocket URL from the deployed client.

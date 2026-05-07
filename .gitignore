@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
+# dependencies (root, client/, backend/, nested packages)
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -13,12 +13,13 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
+# next.js — match anywhere (e.g. client/.next/, not only repo root)
+.next/
+out/
 
-# production
-/build
+# production / compiled output
+build/
+dist/
 
 # misc
 .DS_Store
@@ -30,8 +31,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env — ignore secrets; keep checked-in examples
+.env
+.env.*
+!.env.example
+!.env*.example
 
 # vercel
 .vercel

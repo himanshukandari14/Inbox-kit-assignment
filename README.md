@@ -1,40 +1,38 @@
 # Inbox Kit — shared territory grid
 
-A **real-time multiplayer** board: **1,008 tiles** (36×28). Open the app, **click tiles to capture** them. **Convex** stores the grid and player roster; the **Next.js** client subscribes with reactive queries so everyone sees the same state.
+A **real-time multiplayer** board: **1,008 tiles** (36×28). Open the app, **click tiles to capture** them. **Convex** stores the grid and player roster; the **Next.js** app subscribes with reactive queries so everyone sees the same state.
 
 ## Repository layout
 
 ```
-├── client/                 # Next.js app + Convex backend (same package)
-│   ├── app/
-│   ├── components/
-│   ├── convex/             # schema, territory queries/mutations, crons
-│   ├── hooks/              # useGridConvex (Convex react hooks)
-│   └── package.json
+├── app/
+├── components/
+├── convex/          # schema, territory queries/mutations, crons
+├── hooks/           # useGridConvex (Convex react hooks)
+├── lib/
+├── package.json
 └── README.md
 ```
 
 ## Prerequisites
 
 - **Node.js** 18+
-- **pnpm** (or npm) for the client
+- **pnpm** (or npm)
 
 ## Quick start
 
-**1. Convex** — from `client/`, start the dev deployment (creates/updates `.env.local` with `NEXT_PUBLIC_CONVEX_URL`):
+**1. Convex** — from the repo root, start the dev deployment (creates/updates `.env.local` with `NEXT_PUBLIC_CONVEX_URL`):
 
 ```bash
-cd client
 pnpm install
 pnpm exec convex dev
 ```
 
 Leave that process running (or run it again before you develop).
 
-**2. Client** — in another terminal:
+**2. Next.js** — in another terminal:
 
 ```bash
-cd client
 pnpm dev
 ```
 
@@ -42,15 +40,15 @@ Open **http://localhost:3000**.
 
 ### Environment
 
-- **`NEXT_PUBLIC_CONVEX_URL`** — set automatically by `pnpm exec convex dev` in `.env.local`. For production, use the URL from your Convex dashboard. See `client/.env.local.example`.
+- **`NEXT_PUBLIC_CONVEX_URL`** — set automatically by `pnpm exec convex dev` in `.env.local`. For production, use the URL from your Convex dashboard. See `.env.local.example`.
 
-## Scripts (client)
+## Scripts
 
-| Command           | Purpose                    |
-|-------------------|----------------------------|
-| `pnpm dev`        | Next.js dev server         |
-| `pnpm build`      | Production build           |
-| `pnpm exec convex dev` | Convex dev + codegen  |
+| Command                 | Purpose               |
+|-------------------------|-----------------------|
+| `pnpm dev`              | Next.js dev server    |
+| `pnpm build`            | Production build      |
+| `pnpm exec convex dev`  | Convex dev + codegen  |
 
 ## How it works
 
@@ -60,7 +58,7 @@ Open **http://localhost:3000**.
 - **Stale sessions:** A cron clears players who stop heartbeating (~2 minutes without `pulse`), and frees their tiles.
 - **Identity:** An **opaque Convex `players` id** is stored in `localStorage` and passed into mutations (demo-level trust model, same spirit as the old per-socket UUID).
 
-### Client
+### UI
 
 - Grid **fits the viewport** when you resize.
 - Leaderboard and approximate **online** count (players with a recent heartbeat).
@@ -68,5 +66,5 @@ Open **http://localhost:3000**.
 
 ## Production
 
-1. `pnpm exec convex deploy` for the backend (from `client/`).
+1. `pnpm exec convex deploy` for the backend (from repo root).
 2. Set **`NEXT_PUBLIC_CONVEX_URL`** on your Next.js host to the deployed Convex URL.

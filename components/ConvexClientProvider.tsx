@@ -33,9 +33,8 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
           <p className="max-w-md text-sm">
             Set <code className="text-rose-300">NEXT_PUBLIC_CONVEX_URL</code> in{" "}
             <code className="text-neutral-400">.env.local</code>. Run{" "}
-            <code className="text-neutral-400">npx convex dev</code> from the{" "}
-            <code className="text-neutral-400">client</code> folder to create a
-            deployment and print the URL.
+            <code className="text-neutral-400">pnpm exec convex dev</code> in
+            this project root to create a deployment and print the URL.
           </p>
         </div>
         {territoryToaster}

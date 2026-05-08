@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useGridSocket } from "@/hooks/useGridSocket";
+import { useGridConvex } from "@/hooks/useGridConvex";
 
 function tileColor(
   ownerId: string | null,
@@ -91,7 +91,7 @@ function NameField({
 }
 
 export function TerritoryPage() {
-  const g = useGridSocket();
+  const g = useGridConvex();
   const [fit, setFit] = useState({ w: 0, h: 0 });
   const [flashIdx, setFlashIdx] = useState<number | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -211,8 +211,8 @@ export function TerritoryPage() {
             Territory
           </h1>
           <p className="mt-3 max-w-[260px] text-sm leading-relaxed text-neutral-500">
-            Click any cell to claim it. Everyone sees the same board over the
-            socket.
+            Click any cell to claim it. Everyone shares the same board; Convex
+            keeps every tile in sync in realtime.
           </p>
         </header>
 

@@ -1,79 +1,72 @@
 # Inbox Kit — shared territory grid
 
-A **real-time multiplayer** board: **1,008 tiles** (36×28). Open the app, **click tiles to capture** them. A **Node.js** server holds game state; the **Next.js** client connects over **WebSockets** so updates appear for everyone at once.
+A **real-time multiplayer** board: **1,008 tiles** (36×28). Open the app, **click tiles to capture** them. **Convex** stores the grid and player roster; the **Next.js** client subscribes with reactive queries so everyone sees the same state.
 
 ## Repository layout
 
 ```
-├── backend/          # Plain JavaScript (Node + ws)
-│   └── src/
-│       ├── server.js   # HTTP + WebSocket /ws
-│       ├── game.js     # Grid, users, slugs, cooldowns
-│       └── protocol.js # Grid size + cooldown constant
-├── client/           # Next.js app (React, Tailwind)
+├── client/                 # Next.js app + Convex backend (same package)
 │   ├── app/
 │   ├── components/
-│   └── hooks/        # WebSocket hook
+│   ├── convex/             # schema, territory queries/mutations, crons
+│   ├── hooks/              # useGridConvex (Convex react hooks)
+│   └── package.json
 └── README.md
 ```
 
 ## Prerequisites
 
-- **Node.js** 18+ (`node --watch` is used for backend dev)
-- **npm** (backend) and **pnpm** or **npm** (client)
+- **Node.js** 18+
+- **pnpm** (or npm) for the client
 
 ## Quick start
 
-Run **both** processes.
-
-**1. Backend** — `http://localhost:4000`, WebSocket **`ws://localhost:4000/ws`**
-
-```bash
-cd backend
-npm install
-npm run dev
-```
-
-**2. Client** — `http://localhost:3000`
+**1. Convex** — from `client/`, start the dev deployment (creates/updates `.env.local` with `NEXT_PUBLIC_CONVEX_URL`):
 
 ```bash
 cd client
 pnpm install
+pnpm exec convex dev
+```
+
+Leave that process running (or run it again before you develop).
+
+**2. Client** — in another terminal:
+
+```bash
+cd client
 pnpm dev
 ```
 
-### Environment (optional)
+Open **http://localhost:3000**.
 
-If the API is not on the same host/port, set in **`client/.env.local`**:
+### Environment
 
-```bash
-NEXT_PUBLIC_WS_URL=ws://127.0.0.1:4000/ws
-```
+- **`NEXT_PUBLIC_CONVEX_URL`** — set automatically by `pnpm exec convex dev` in `.env.local`. For production, use the URL from your Convex dashboard. See `client/.env.local.example`.
 
-Backend port: **`PORT`** (default `4000`).
+## Scripts (client)
 
-## Scripts
-
-| Location  | Command        | Purpose                |
-|-----------|----------------|------------------------|
-| `backend` | `npm run dev`  | `node --watch src/server.js` |
-| `backend` | `npm start`    | `node src/server.js`   |
-| `client`  | `pnpm dev`     | Next.js dev            |
-| `client`  | `pnpm build`   | Production build       |
+| Command           | Purpose                    |
+|-------------------|----------------------------|
+| `pnpm dev`        | Next.js dev server         |
+| `pnpm build`      | Production build           |
+| `pnpm exec convex dev` | Convex dev + codegen  |
 
 ## How it works
 
-- **Real-time:** `ws` + small JSON messages (`welcome`, `patch`, `meta`, `sync`, `presence`, `error`).
-- **State:** In-memory on the server; captures are validated there (bounds, cooldown, own-tile reject).
-- **New players:** Random **kebab-case slug** via [`random-word-slugs`](https://www.npmjs.com/package/random-word-slugs), plus a **unique territory color** (HSL + golden-angle spacing so active players don’t share a hue).
-- **Disconnect:** That player is removed and their tiles cleared; others get a **`sync`**.
+- **Realtime:** Convex queries (`getSnapshot`) subscriptions; captures use mutations and update the board for all subscribers.
+- **State:** One `board` document (singleton) with a `cells` array matching **GRID_WIDTH × GRID_HEIGHT**; `players` rows hold name, color, cooldown, and **heartbeat** `lastSeenAt`.
+- **New players:** Random kebab **slug** via [`random-word-slugs`](https://www.npmjs.com/package/random-word-slugs), plus a **unique territory color** (HSL + golden-angle spacing).
+- **Stale sessions:** A cron clears players who stop heartbeating (~2 minutes without `pulse`), and frees their tiles.
+- **Identity:** An **opaque Convex `players` id** is stored in `localStorage` and passed into mutations (demo-level trust model, same spirit as the old per-socket UUID).
 
 ### Client
 
-- Grid **scales to fit** the map panel when you resize the window.
-- Leaderboard and online count; brief error line for invalid captures.
+- Grid **fits the viewport** when you resize.
+- Leaderboard and approximate **online** count (players with a recent heartbeat).
+- Brief inline errors for invalid captures (cooldown, own tile, bounds).
 
 ## Production
 
-- Run the backend with a real **`PORT`** and **`wss://`** in front if you use HTTPS.
-- Point **`NEXT_PUBLIC_WS_URL`** at that WebSocket URL from the deployed client.
+1. `pnpm exec convex deploy` for the backend (from `client/`).
+2. Set **`NEXT_PUBLIC_CONVEX_URL`** on your Next.js host to the deployed Convex URL.

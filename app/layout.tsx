@@ -23,6 +23,22 @@ const syne = Syne({
 export const metadata: Metadata = {
   title: "Territory — Realtime Tile Game",
   description: "Claim tiles in realtime. A shared multiplayer territory grid powered by Convex.",
+  openGraph: {
+    title: "Territory",
+    description: "Claim tiles in realtime on a shared multiplayer grid.",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "Territory Game Preview",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/og.png"],
+  },
 };
 
 export default function RootLayout({

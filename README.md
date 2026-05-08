@@ -1,70 +1,65 @@
-# Inbox Kit — shared territory grid
+<div align="center">
+  <img src="./public/og.png" alt="Territory App" width="800" />
+</div>
 
-A **real-time multiplayer** board: **1,008 tiles** (36×28). Open the app, **click tiles to capture** them. **Convex** stores the grid and player roster; the **Next.js** app subscribes with reactive queries so everyone sees the same state.
+# Territory: Real-Time Multiplayer Grid Game
 
-## Repository layout
+**Territory** is a fast-paced, real-time multiplayer grid capture experiment. With a board of **1,008 tiles** (36×28), players compete to claim the most cells. Built with a robust modern stack using **Next.js** for the frontend and **Convex** for seamless real-time state synchronization.
+
+## 🚀 Features
+
+- **Real-Time Multiplayer**: Everyone shares the same board. Convex syncs every tile instantly using reactive queries and mutations.
+- **Dynamic Board Wipes**: The grid automatically clears itself every 30 minutes to keep the game fresh.
+- **Auto-Cleanup**: Inactive players are automatically removed from the board after 2 minutes of no heartbeat.
+- **Clean Aesthetic**: A minimalist, high-contrast monochrome design with a sleek UI.
+- **Responsive Layout**: The game grid scales dynamically to fit perfectly in your browser window.
+
+## 🛠 Tech Stack
+
+- **Framework**: [Next.js](https://nextjs.org/) (App Router)
+- **Backend & Realtime DB**: [Convex](https://convex.dev/)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
+- **Language**: TypeScript
+
+## 📂 Project Structure
 
 ```
-├── app/
-├── components/
-├── convex/          # schema, territory queries/mutations, crons
-├── hooks/           # useGridConvex (Convex react hooks)
-├── lib/
-├── package.json
-└── README.md
+├── app/               # Next.js App Router (Layout, Pages, Global CSS)
+├── components/        # React Components (TerritoryPage UI)
+├── convex/            # Backend (Schema, Queries, Mutations, Crons)
+├── hooks/             # Custom React Hooks (useGridConvex)
+├── public/            # Static Assets (Open Graph image, SVGs)
+└── lib/               # Shared Utilities
 ```
 
-## Prerequisites
+## 🏁 Quick Start
 
-- **Node.js** 18+
-- **pnpm** (or npm)
+### Prerequisites
+- Node.js 18+
+- pnpm
 
-## Quick start
-
-**1. Convex** — from the repo root, start the dev deployment (creates/updates `.env.local` with `NEXT_PUBLIC_CONVEX_URL`):
-
+### 1. Start the Backend (Convex)
+Open your terminal and run:
 ```bash
 pnpm install
 pnpm exec convex dev
 ```
+*This command initializes your Convex project and sets up `NEXT_PUBLIC_CONVEX_URL` in `.env.local`. Leave this process running!*
 
-Leave that process running (or run it again before you develop).
-
-**2. Next.js** — in another terminal:
-
+### 2. Start the Frontend (Next.js)
+Open a **new** terminal window and run:
 ```bash
 pnpm dev
 ```
+Visit **[http://localhost:3000](http://localhost:3000)** in your browser to start playing!
 
-Open **http://localhost:3000**.
+## 🧠 How It Works
 
-### Environment
+1. **State Synchronization**: Convex `getSnapshot` queries subscribe to the board state. Every click triggers a `capture` mutation, instantly updating the board for all connected players.
+2. **Session Management**: Each player gets a unique, randomly generated "kebab-case" name and distinct color. The `players` table tracks a `lastSeenAt` heartbeat.
+3. **Crons**: Convex cron jobs handle game resets (wiping the board every 30 mins) and pruning stale players.
 
-- **`NEXT_PUBLIC_CONVEX_URL`** — set automatically by `pnpm exec convex dev` in `.env.local`. For production, use the URL from your Convex dashboard. See `.env.local.example`.
+## 🚢 Deployment
 
-## Scripts
-
-| Command                 | Purpose               |
-|-------------------------|-----------------------|
-| `pnpm dev`              | Next.js dev server    |
-| `pnpm build`            | Production build      |
-| `pnpm exec convex dev`  | Convex dev + codegen  |
-
-## How it works
-
-- **Realtime:** Convex queries (`getSnapshot`) subscriptions; captures use mutations and update the board for all subscribers.
-- **State:** One `board` document (singleton) with a `cells` array matching **GRID_WIDTH × GRID_HEIGHT**; `players` rows hold name, color, cooldown, and **heartbeat** `lastSeenAt`.
-- **New players:** Random kebab **slug** via [`random-word-slugs`](https://www.npmjs.com/package/random-word-slugs), plus a **unique territory color** (HSL + golden-angle spacing).
-- **Stale sessions:** A cron clears players who stop heartbeating (~2 minutes without `pulse`), and frees their tiles.
-- **Identity:** An **opaque Convex `players` id** is stored in `localStorage` and passed into mutations (demo-level trust model, same spirit as the old per-socket UUID).
-
-### UI
-
-- Grid **fits the viewport** when you resize.
-- Leaderboard and approximate **online** count (players with a recent heartbeat).
-- Brief inline errors for invalid captures (cooldown, own tile, bounds).
-
-## Production
-
-1. `pnpm exec convex deploy` for the backend (from repo root).
-2. Set **`NEXT_PUBLIC_CONVEX_URL`** on your Next.js host to the deployed Convex URL.
+1. **Backend**: Run `pnpm exec convex deploy` to push your Convex functions to production.
+2. **Frontend**: Deploy your Next.js app to Vercel (or any other host) and ensure `NEXT_PUBLIC_CONVEX_URL` is configured in your production environment variables.

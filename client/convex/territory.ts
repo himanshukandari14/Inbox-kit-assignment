@@ -226,3 +226,14 @@ export const cleanupStalePlayers = internalMutation({
     await ctx.db.patch(board._id, { cells });
   },
 });
+
+export const clearBoard = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const board = await getBoardDoc(ctx);
+    if (!board) return;
+
+    const emptyCells = new Array(GRID_WIDTH * GRID_HEIGHT).fill(null);
+    await ctx.db.patch(board._id, { cells: emptyCells });
+  },
+});

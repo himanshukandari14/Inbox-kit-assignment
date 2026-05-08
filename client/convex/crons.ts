@@ -9,4 +9,10 @@ crons.interval(
   internal.territory.cleanupStalePlayers,
 );
 
+crons.interval(
+  "clear board every 30 mins",
+  { minutes: 30 },
+  internal.territory.clearBoard,
+);
+
 export default crons;

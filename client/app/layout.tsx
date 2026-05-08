@@ -21,8 +21,8 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: "Territory",
-  description: "Shared realtime grid.",
+  title: "Territory — Realtime Tile Game",
+  description: "Claim tiles in realtime. A shared multiplayer territory grid powered by Convex.",
 };
 
 export default function RootLayout({
@@ -35,7 +35,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${syne.variable} h-full antialiased`}
     >
-      <body className="min-h-svh bg-[var(--ink)] text-neutral-100 selection:bg-rose-900/50 selection:text-white">
+      <body className="min-h-svh bg-[var(--ink)] text-[#ede9f6]">
         <ConvexClientProvider>{children}</ConvexClientProvider>
       </body>
     </html>

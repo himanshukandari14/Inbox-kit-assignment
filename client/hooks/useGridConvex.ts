@@ -109,9 +109,10 @@ export function useGridConvex(): GridConnection {
     return () => window.clearInterval(id);
   }, [playerId, pulseMut]);
 
+  /** Ticks every second so “online” presence next to the header stays fresh */
   const [onlineAt, setOnlineAt] = useState(() => Date.now());
   useEffect(() => {
-    const id = window.setInterval(() => setOnlineAt(Date.now()), 5000);
+    const id = window.setInterval(() => setOnlineAt(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
 

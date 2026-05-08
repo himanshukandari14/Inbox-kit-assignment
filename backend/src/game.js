@@ -7,8 +7,7 @@ import {
 } from "./protocol.js";
 
 const NAME_MAX_LEN = 24;
-
-/** Golden-angle steps keep new hues visually separated on the wheel */
+/** Step hue by the golden angle so each new player’s color is visually distinct */
 const GOLDEN_ANGLE = 137.508;
 
 function hslToHex(hDeg, sPerc, lPerc) {
@@ -43,7 +42,6 @@ function hslToHex(hDeg, sPerc, lPerc) {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-/** One distinct hex per active player; works for many more users than a fixed palette */
 function pickUniqueTerritoryColor(usedHex) {
   const n = usedHex.size;
   for (let attempt = 0; attempt < 720; attempt++) {
@@ -56,22 +54,22 @@ function pickUniqueTerritoryColor(usedHex) {
   return hslToHex(Math.random() * 360, 64, 52);
 }
 
-function generateDefaultSlug() {
+function defaultSlug() {
   return generateSlug(3, { format: "kebab" }).slice(0, NAME_MAX_LEN);
 }
 
 function takeUnusedSlug(existingNames) {
   for (let i = 0; i < 48; i++) {
-    const slug = generateDefaultSlug();
+    const slug = defaultSlug();
     if (!existingNames.has(slug)) return slug;
   }
   return `player-${Math.random().toString(36).slice(2, 10)}`.slice(0, NAME_MAX_LEN);
 }
 
 function clampName(raw) {
-  if (typeof raw !== "string") return generateDefaultSlug();
+  if (typeof raw !== "string") return defaultSlug();
   const s = raw.trim().slice(0, NAME_MAX_LEN);
-  return s.length > 0 ? s : generateDefaultSlug();
+  return s.length > 0 ? s : defaultSlug();
 }
 
 export class GameState {
@@ -80,19 +78,19 @@ export class GameState {
     this.users = new Map();
   }
 
+  /** What every client needs to render sidebar + scores (leaderboard order does not depend on “viewer”) */
+  getRoomSnapshot() {
+    const anyId = this.users.keys().next().value;
+    const { leaderboard } = this.leaderboard(anyId);
+    return { leaderboard, users: this.getPublicUsers() };
+  }
+
   createUser(id) {
     const takenColors = new Set([...this.users.values()].map((u) => u.color));
     const color = pickUniqueTerritoryColor(takenColors);
-    const name = takeUnusedSlug(
-      new Set([...this.users.values()].map((u) => u.name)),
-    );
-    const user = { id, name, color };
-    this.users.set(id, {
-      name,
-      color,
-      lastCaptureAt: 0,
-    });
-    return user;
+    const name = takeUnusedSlug(new Set([...this.users.values()].map((u) => u.name)));
+    this.users.set(id, { name, color, lastCaptureAt: 0 });
+    return { id, name, color };
   }
 
   removeUser(id) {
@@ -105,9 +103,8 @@ export class GameState {
   renameUser(id, rawName) {
     const u = this.users.get(id);
     if (!u) return null;
-    const name = clampName(rawName);
-    u.name = name;
-    return name;
+    u.name = clampName(rawName);
+    return u.name;
   }
 
   index(x, y) {
@@ -122,9 +119,7 @@ export class GameState {
     if (!user) return { ok: false, reason: "unknown_user" };
 
     const idx = this.index(x, y);
-    if (this.cells[idx] === userId) {
-      return { ok: false, reason: "own" };
-    }
+    if (this.cells[idx] === userId) return { ok: false, reason: "own" };
 
     const elapsed = now - user.lastCaptureAt;
     if (elapsed < CAPTURE_COOLDOWN_MS && user.lastCaptureAt !== 0) {
@@ -133,7 +128,7 @@ export class GameState {
 
     user.lastCaptureAt = now;
     this.cells[idx] = userId;
-    return { ok: true, ownerId: userId, index: idx };
+    return { ok: true, ownerId: userId };
   }
 
   leaderboard(yourId) {
@@ -151,9 +146,7 @@ export class GameState {
         cells: counts.get(uid) ?? 0,
       });
     }
-    entries.sort(
-      (a, b) => b.cells - a.cells || a.name.localeCompare(b.name),
-    );
+    entries.sort((a, b) => b.cells - a.cells || a.name.localeCompare(b.name));
 
     return {
       leaderboard: entries.slice(0, 12),

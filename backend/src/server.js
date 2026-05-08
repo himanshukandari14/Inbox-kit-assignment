@@ -1,6 +1,6 @@
 import http from "node:http";
 import { randomUUID } from "node:crypto";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { GameState } from "./game.js";
 import {
   CAPTURE_COOLDOWN_MS,
@@ -11,38 +11,32 @@ import {
 const PORT = Number(process.env.PORT ?? 4000);
 const game = new GameState();
 
+/** Simple token bucket: each socket gets at most maxPerSecond */
 function createLimiter(maxPerSecond) {
   let tokens = maxPerSecond;
   let last = Date.now();
   return () => {
     const now = Date.now();
-    const elapsed = (now - last) / 1000;
+    tokens = Math.min(maxPerSecond, tokens + ((now - last) / 1000) * maxPerSecond);
     last = now;
-    tokens = Math.min(maxPerSecond, tokens + elapsed * maxPerSecond);
     if (tokens < 1) return false;
     tokens -= 1;
     return true;
   };
 }
 
-function safeJsonParse(raw) {
+function readClientMessage(data) {
+  const raw =
+    typeof data === "string" ? data : Buffer.isBuffer(data) ? data.toString("utf8") : null;
+  if (!raw) return null;
+  let v;
   try {
-    return JSON.parse(raw);
+    v = JSON.parse(raw);
   } catch {
     return null;
   }
-}
-
-function parseClientMessage(data) {
-  const raw =
-    typeof data === "string"
-      ? data
-      : Buffer.isBuffer(data)
-        ? data.toString("utf8")
-        : null;
-  if (!raw) return null;
-  const v = safeJsonParse(raw);
   if (!v || typeof v !== "object") return null;
+
   if (v.type === "rename" && typeof v.name === "string") {
     return { type: "rename", name: v.name };
   }
@@ -58,20 +52,28 @@ function parseClientMessage(data) {
   return null;
 }
 
-function broadcast(msg, except) {
+const CAPTURE_ERROR = {
+  cooldown: { code: "COOLDOWN", message: "Short cooldown between captures" },
+  bounds: { code: "BOUNDS", message: "Out of bounds" },
+  own: { code: "OWN", message: "You already hold this tile" },
+  unknown_user: { code: "UNKNOWN", message: "Cannot capture" },
+};
+
+function captureErrorPayload(reason) {
+  return CAPTURE_ERROR[reason] ?? CAPTURE_ERROR.unknown_user;
+}
+
+function broadcast(wss, msg, exceptSocket) {
   const payload = JSON.stringify(msg);
   for (const client of wss.clients) {
-    if (client.readyState !== 1) continue;
-    if (client === except) continue;
+    if (client.readyState !== WebSocket.OPEN) continue;
+    if (client === exceptSocket) continue;
     client.send(payload);
   }
 }
 
-function broadcastPresence() {
-  broadcast({
-    type: "presence",
-    onlineCount: wss.clients.size,
-  });
+function gridPayload() {
+  return { width: GRID_WIDTH, height: GRID_HEIGHT, cells: [...game.cells] };
 }
 
 const server = http.createServer((_req, res) => {
@@ -81,88 +83,63 @@ const server = http.createServer((_req, res) => {
 
 const wss = new WebSocketServer({ server, path: "/ws" });
 
+function onlineCount() {
+  return wss.clients.size;
+}
+
+function presenceMessage() {
+  return { type: "presence", onlineCount: onlineCount() };
+}
+
 wss.on("connection", (socket) => {
   const limiter = createLimiter(24);
   const userId = randomUUID();
   const me = game.createUser(userId);
+  const room = game.getRoomSnapshot();
 
-  socket.send(
-    JSON.stringify({
-      type: "welcome",
-      userId,
-      name: me.name,
-      color: me.color,
-      grid: {
-        width: GRID_WIDTH,
-        height: GRID_HEIGHT,
-        cells: [...game.cells],
-      },
-      users: game.getPublicUsers(),
-      leaderboard: game.leaderboard(userId).leaderboard,
-      cooldownMs: CAPTURE_COOLDOWN_MS,
-      onlineCount: wss.clients.size,
-    }),
-  );
+  socket.send(JSON.stringify({
+    type: "welcome",
+    userId,
+    name: me.name,
+    color: me.color,
+    grid: gridPayload(),
+    users: room.users,
+    leaderboard: room.leaderboard,
+    cooldownMs: CAPTURE_COOLDOWN_MS,
+    onlineCount: onlineCount(),
+  }));
 
   broadcast(
+    wss,
     {
       type: "meta",
-      leaderboard: game.leaderboard(userId).leaderboard,
-      users: game.getPublicUsers(),
-      onlineCount: wss.clients.size,
+      ...game.getRoomSnapshot(),
+      onlineCount: onlineCount(),
     },
     socket,
   );
-
-  broadcastPresence();
+  broadcast(wss, presenceMessage(), null);
 
   socket.on("message", (data) => {
     if (!limiter()) return;
-    const msg = parseClientMessage(data);
+    const msg = readClientMessage(data);
     if (!msg) return;
 
     if (msg.type === "rename") {
       if (game.renameUser(userId, msg.name) === null) return;
-      const lb = game.leaderboard(userId).leaderboard;
-      broadcast({
-        type: "meta",
-        leaderboard: lb,
-        users: game.getPublicUsers(),
-        onlineCount: wss.clients.size,
-      });
+      broadcast(wss, { type: "meta", ...game.getRoomSnapshot(), onlineCount: onlineCount() }, null);
       return;
     }
 
     if (msg.type === "capture") {
       const result = game.capture(userId, msg.x, msg.y, Date.now());
       if (!result.ok) {
-        const code =
-          result.reason === "cooldown"
-            ? "COOLDOWN"
-            : result.reason === "bounds"
-              ? "BOUNDS"
-              : result.reason === "own"
-                ? "OWN"
-                : "UNKNOWN";
-        socket.send(
-          JSON.stringify({
-            type: "error",
-            code,
-            message:
-              result.reason === "cooldown"
-                ? "Short cooldown between captures"
-                : result.reason === "own"
-                  ? "You already hold this tile"
-                  : result.reason === "bounds"
-                    ? "Out of bounds"
-                    : "Cannot capture",
-          }),
-        );
+        const err = captureErrorPayload(result.reason);
+        socket.send(JSON.stringify({ type: "error", code: err.code, message: err.message }));
         return;
       }
 
-      const lb = game.leaderboard(userId).leaderboard;
-      const users = game.getPublicUsers();
+      const snap = game.getRoomSnapshot();
       socket.send(
         JSON.stringify({
           type: "patch",
@@ -170,20 +147,19 @@ wss.on("connection", (socket) => {
           y: msg.y,
           ownerId: result.ownerId,
           you: true,
-          leaderboard: lb,
-          users,
-          onlineCount: wss.clients.size,
+          ...snap,
+          onlineCount: onlineCount(),
         }),
       );
       broadcast(
+        wss,
         {
           type: "patch",
           x: msg.x,
           y: msg.y,
           ownerId: result.ownerId,
-          leaderboard: lb,
-          users,
-          onlineCount: wss.clients.size,
+          ...snap,
+          onlineCount: onlineCount(),
         },
         socket,
       );
@@ -192,18 +168,17 @@ wss.on("connection", (socket) => {
 
   socket.on("close", () => {
     game.removeUser(userId);
-    broadcast({
-      type: "sync",
-      grid: {
-        width: GRID_WIDTH,
-        height: GRID_HEIGHT,
-        cells: [...game.cells],
+    broadcast(
+      wss,
+      {
+        type: "sync",
+        grid: gridPayload(),
+        ...game.getRoomSnapshot(),
+        onlineCount: onlineCount(),
       },
-      leaderboard: game.leaderboard(userId).leaderboard,
-      users: game.getPublicUsers(),
-      onlineCount: wss.clients.size,
-    });
-    broadcastPresence();
+      null,
+    );
+    broadcast(wss, presenceMessage(), null);
   });
 });
 
